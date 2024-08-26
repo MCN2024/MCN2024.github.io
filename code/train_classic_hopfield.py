@@ -7,7 +7,7 @@ from PIL import Image
 import utils
 
 
-def get_name_patterns():
+def get_name_patterns(filter_by_used=False):
     """
     Load images from stored path
 
@@ -32,9 +32,16 @@ def get_name_patterns():
     P = images.shape[0]
     full_patterns = images.reshape((P, -1)).astype(jnp.float32)
     if using_color:
-        idx_used = np.any(full_patterns == 1, axis=0)
+        if filter_by_used:
+            idx_used = np.any(full_patterns == 1, axis=0)
+        else:
+            images_plus = np.copy(images)
+            add_bits_idx = [7, 15, 23]
+            images_plus[:, :, :, add_bits_idx] = 1
+            full_patterns_plus = images_plus.reshape((P, -1)).astype(jnp.float32)
+            idx_used = np.any(full_patterns_plus == 1, axis=0)
     else:
-        idx_used = np.ones(full_patterns.shape[1], dtype=bool)
+        idx_used = np.ones(full_patterns.shape[-1], dtype=bool)
     memory_patterns = full_patterns[:, idx_used]
 
     return memory_patterns, images, idx_used
@@ -56,19 +63,27 @@ def run_simulations(memory_patterns, W, sigma=5, b=1e-2, start_beta=0.5, end_bet
     for p in tqdm(range(P)):
         success = False
         attempts = 0
+        successful_results = np.zeros((max_T + 1, num_per_name, N))
+        converged = np.all(successful_results[-1] == memory_patterns[p], axis=1)
         while not success:
-            noise_patterns = np.repeat(memory_patterns[p][np.newaxis], num_per_name, axis=0) + sigma * np.random.randn(num_per_name, N)
-            results = utils.simulate_probabilistic(noise_patterns, W, b=b, beta=start_beta, end_beta=end_beta, num_iters=max_T)
-            converged = np.all(results[-1] == memory_patterns[p], axis=1)
+            c_sigma = sigma * (1.0 - 0.999 * attempts / max_attempts)
+            num_required = num_per_name - np.sum(converged)
+            noise_patterns = np.repeat(memory_patterns[p][np.newaxis], num_required, axis=0) + c_sigma * np.random.randn(num_required, N)
+            c_results = utils.simulate_probabilistic(noise_patterns, W, b=b, beta=start_beta, end_beta=end_beta, num_iters=max_T)
+            c_converged = np.all(c_results[-1] == memory_patterns[p], axis=1)
+            update_idx = np.where(~converged)[0][c_converged]
+            successful_results[:, update_idx] = c_results[:, c_converged]
+            converged = np.all(successful_results[-1] == memory_patterns[p], axis=1)
             success = np.all(converged).item()
             attempts += 1
             if attempts > max_attempts:
+                print(f"Failed to converge on {p} after {max_attempts} attempts. Total success: {np.sum(converged)}")
                 break
         if success:
-            stacked_results = np.transpose(results, axes=(1, 0, 2)).reshape(-1, N)
+            stacked_results = np.transpose(successful_results, axes=(1, 0, 2)).reshape(-1, N)
             name_simulations.append(stacked_results)
         else:
-            name_simulations.append(results)
+            name_simulations.append(successful_results)
         name_attempts.append(attempts)
         name_success.append(success)
     return name_simulations, name_success, name_attempts
@@ -103,6 +118,7 @@ def create_gif(filename, images, scaleup=1, duration=100):
 if __name__ == "__main__":
     parser = ArgumentParser(description="Train a Hopfield network on names and save gifs of the results")
     parser.add_argument("--redo-training", default=False, action="store_true", help="Whether to redo the training")
+    parser.add_argument("--filter-by-used", default=False, action="store_true", help="Whether to filter out unused pixels")
     parser.add_argument("--visualize-weights", default=False, action="store_true", help="Whether to visualize the weights")
     parser.add_argument("--sigma", type=float, default=5, help="Standard deviation of noise to add to memory patterns")
     parser.add_argument("--b", type=float, default=1e-2, help="Bias term for the Hopfield network")
@@ -126,7 +142,7 @@ if __name__ == "__main__":
 
     if not loaded:
         # Load memory patterns, original images, and idx to relevant dimensions in full images
-        memory_patterns, images, idx_used = get_name_patterns()
+        memory_patterns, images, idx_used = get_name_patterns(args.filter_by_used)
         height, width = images.shape[1], images.shape[2]
 
         # Train the Hopfield network (just need to learn the weights)
@@ -154,6 +170,7 @@ if __name__ == "__main__":
             idx_used=idx_used,
             height=height,
             width=width,
+            args=vars(args),
         )
 
         np.save(utils.get_hopfield_network_path(), network)
