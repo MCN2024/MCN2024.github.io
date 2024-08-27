@@ -49,6 +49,7 @@ def load_student_names():
         "Tian, Gengshuo",
         "Tiberi, Lorenzo",
         "Wilkins, Lillian",
+        "Yang, Zidan",
     ]
     return [" ".join(n.split(", ")[::-1]) for n in names]
 
@@ -58,8 +59,8 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Save names and parameters for the Hopfield network")
     parser.add_argument("--full-name", default=False, action="store_true", help="Use full names instead of first names")
     parser.add_argument("--min-saturation", type=int, default=200, help="Minimum saturation for the colors")
-    parser.add_argument("--horizontal-padding", type=int, default=20, help="Horizontal padding for random positioning")
-    parser.add_argument("--vertical-padding", type=int, default=5, help="Vertical padding for random positioning")
+    parser.add_argument("--horizontal-padding", type=int, default=18, help="Horizontal padding for random positioning")
+    parser.add_argument("--vertical-padding", type=int, default=4, help="Vertical padding for random positioning")
     args = parser.parse_args()
 
     # Get names as a list

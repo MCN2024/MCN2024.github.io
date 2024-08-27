@@ -125,7 +125,7 @@ if __name__ == "__main__":
     parser.add_argument("--start_beta", type=float, default=0.5, help="Starting beta for the Hopfield network")
     parser.add_argument("--end_beta", type=float, default=0.0001, help="Ending beta for the Hopfield network")
     parser.add_argument("--num_per_name", type=int, default=5, help="Number of simulations to run per name")
-    parser.add_argument("--max_attempts", type=int, default=50, help="Maximum number of attempts to converge")
+    parser.add_argument("--max_attempts", type=int, default=20, help="Maximum number of attempts to converge")
     parser.add_argument("--max_T", type=int, default=10, help="Maximum number of iterations to run")
     parser.add_argument("--scaleup", type=int, default=1, help="Scale up the images for the gif")
     parser.add_argument("--duration", type=int, default=100, help="Duration of each frame in the gif")
