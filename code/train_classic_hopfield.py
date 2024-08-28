@@ -51,7 +51,7 @@ def show_weights(W):
     w_max = jnp.max(jnp.abs(W)) / 10
     plt.imshow(W, interpolation="none", vmin=-w_max, vmax=w_max, cmap="coolwarm")
     plt.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
-    plt.savefig(utils.get_weight_matrix_path())
+    plt.savefig(utils.get_weight_matrix_path(), dpi=300)
     plt.show()
 
 
