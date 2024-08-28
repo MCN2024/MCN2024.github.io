@@ -60,16 +60,23 @@ def run_simulations(memory_patterns, W, sigma=5, b=1e-2, start_beta=0.5, end_bet
     name_simulations = []
     name_success = []
     name_attempts = []
+    # Run simulations for each name independently
     for p in tqdm(range(P)):
+        # Requires num_per_name successful simulations, but it's helpful to parallelize
         success = False
         attempts = 0
+        # Store the results in a 3D array (T, num_per_name, N) and check for successful convergence
         successful_results = np.zeros((max_T + 1, num_per_name, N))
         converged = np.all(successful_results[-1] == memory_patterns[p], axis=1)
         while not success:
+            # Reduce sigma to increase the probability of convergence as we try more times for each name
             c_sigma = sigma * (1.0 - 0.999 * attempts / max_attempts)
+            # Measure how many more successful attempts are required
             num_required = num_per_name - np.sum(converged)
+            # Add noise to the memory pattern and run the simulation however many times are still needed
             noise_patterns = np.repeat(memory_patterns[p][np.newaxis], num_required, axis=0) + c_sigma * np.random.randn(num_required, N)
             c_results = utils.simulate_probabilistic(noise_patterns, W, b=b, beta=start_beta, end_beta=end_beta, num_iters=max_T)
+            # Check which ones worked, add them to the successful results, and check if we're done
             c_converged = np.all(c_results[-1] == memory_patterns[p], axis=1)
             update_idx = np.where(~converged)[0][c_converged]
             successful_results[:, update_idx] = c_results[:, c_converged]
@@ -80,6 +87,7 @@ def run_simulations(memory_patterns, W, sigma=5, b=1e-2, start_beta=0.5, end_bet
                 print(f"Failed to converge on {p} after {max_attempts} attempts. Total success: {np.sum(converged)}")
                 break
         if success:
+            # Concatenate the successful results and store them into a single movie
             stacked_results = np.transpose(successful_results, axes=(1, 0, 2)).reshape(-1, N)
             name_simulations.append(stacked_results)
         else:
@@ -89,13 +97,17 @@ def run_simulations(memory_patterns, W, sigma=5, b=1e-2, start_beta=0.5, end_bet
     return name_simulations, name_success, name_attempts
 
 
-def reconstruct_rgbs(images, height, width, idx_used):
-    asim_activity = -1.0 * np.ones((images.shape[0], len(idx_used)))
-    asim_activity[:, idx_used] = images
-    asim_binary = ((asim_activity + 1.0) // 2).astype(bool)
+def reconstruct_rgbs(output, height, width, idx_used):
+    """Restore flattened Hopfield output to RGB image with intended shape"""
+    # Initialize output array to include all dimensions in image (some are ignored by the Hopfield network)
+    full_output = -1.0 * np.ones((output.shape[0], len(idx_used)))
+    # Put the hopfield output where it's supposed to go and convert to binary
+    full_output[:, idx_used] = output
+    full_binary = ((full_output + 1.0) // 2).astype(bool)
 
-    sim_images = np.reshape(asim_binary, (asim_binary.shape[0], height, width, 24))
-    rgb_images = utils.binary_to_image(sim_images)
+    # Reshape to image dimensions, and convert 24bit binary to 3-channel RGB
+    binary_images = np.reshape(full_binary, (full_binary.shape[0], height, width, 24))
+    rgb_images = utils.binary_to_image(binary_images)
     return rgb_images
 
 
@@ -119,7 +131,7 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Train a Hopfield network on names and save gifs of the results")
     parser.add_argument("--redo-training", default=False, action="store_true", help="Whether to redo the training")
     parser.add_argument("--filter-by-used", default=False, action="store_true", help="Whether to filter out unused pixels")
-    parser.add_argument("--visualize-weights", default=False, action="store_true", help="Whether to visualize the weights")
+    parser.add_argument("--visualize-weights", default=False, action="store_true", help="Whether to visualize the weights (if used, won't save gifs)")
     parser.add_argument("--sigma", type=float, default=5, help="Standard deviation of noise to add to memory patterns")
     parser.add_argument("--b", type=float, default=1e-2, help="Bias term for the Hopfield network")
     parser.add_argument("--start_beta", type=float, default=0.5, help="Starting beta for the Hopfield network")
@@ -134,12 +146,14 @@ if __name__ == "__main__":
     # Load names and general data
     name_data = np.load(utils.get_name_data_path(), allow_pickle=True).item()
 
+    # Load the network if it exists and we're not redoing the training
     loaded = False
     if not args.redo_training:
         if utils.get_hopfield_network_path().exists():
             network = np.load(utils.get_hopfield_network_path(), allow_pickle=True).item()
             loaded = True
 
+    # If we're redoing the training or the network doesn't exist, train the network, run simulations, save it
     if not loaded:
         # Load memory patterns, original images, and idx to relevant dimensions in full images
         memory_patterns, images, idx_used = get_name_patterns(args.filter_by_used)
