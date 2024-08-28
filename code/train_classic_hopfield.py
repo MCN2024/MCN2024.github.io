@@ -48,10 +48,10 @@ def get_name_patterns(filter_by_used=False):
 
 
 def show_weights(W):
-    plt.imshow(jnp.abs(W) > 5, vmin=0, vmax=1, interpolation="none", cmap="Greys")
-    plt.show()
-
-    plt.imshow(W, interpolation="none", cmap="jet")
+    w_max = jnp.max(jnp.abs(W)) / 10
+    plt.imshow(W, interpolation="none", vmin=-w_max, vmax=w_max, cmap="coolwarm")
+    plt.tick_params(top=False, bottom=False, left=False, right=False, labelleft=False, labelbottom=False)
+    plt.savefig(utils.get_weight_matrix_path())
     plt.show()
 
 
@@ -177,15 +177,16 @@ if __name__ == "__main__":
 
     # Visualize the weights if requested
     if args.visualize_weights:
-        show_weights(W)
+        show_weights(network["W"])
 
-    # Save the results as gifs
-    for iname, (simulation, success) in enumerate(zip(network["name_simulations"], network["name_success"])):
-        if not success:
-            print(f"Failed to converge on {iname} after {args.max_attempts} attempts")
-            continue
-        name = name_data["first_names"][iname]
-        filename = utils.get_name_gif_path(name)
-        rgb_images = reconstruct_rgbs(simulation, network["height"], network["width"], network["idx_used"])
-        create_gif(filename, rgb_images, scaleup=args.scaleup, duration=args.duration)
-        print(f"Saved {name} simulation to {filename}")
+    else:
+        # Save the results as gifs
+        for iname, (simulation, success) in enumerate(zip(network["name_simulations"], network["name_success"])):
+            if not success:
+                print(f"Failed to converge on {iname} after {args.max_attempts} attempts")
+                continue
+            name = name_data["first_names"][iname]
+            filename = utils.get_name_gif_path(name)
+            rgb_images = reconstruct_rgbs(simulation, network["height"], network["width"], network["idx_used"])
+            create_gif(filename, rgb_images, scaleup=args.scaleup, duration=args.duration)
+            print(f"Saved {name} simulation to {filename}")

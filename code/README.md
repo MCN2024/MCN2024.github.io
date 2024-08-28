@@ -6,6 +6,8 @@ permalink: /code/
 
 To view this page and the relevant code on GitHub, go [here](https://github.com/MCN2024/MCN2024.github.io/tree/main/code).
 
+![the weight matrix!](./weight_matrix.png)
+
 ## Constructing the patterns
 The patterns that our Hopfield network stores are our names (usually first, but can save last too). The names are represented as text in an image with a unique color and spatial offset for each person. This is fun, but also helpful because it decreases correlations in the Hopfield network's attractor states so makes for a much more stable representation. 
 

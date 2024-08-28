@@ -41,6 +41,10 @@ def get_name_gif_path(name):
     return gif_path / f"{name}.gif"
 
 
+def get_weight_matrix_path():
+    return Path(__file__).resolve().parent / "weight_matrix.png"
+
+
 # ------------------------------ NAME VISUALIZATION ----------------------------
 def get_offsets(names_list):
     font = ImageFont.load_default()
